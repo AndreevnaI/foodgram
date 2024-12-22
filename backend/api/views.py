@@ -1,7 +1,6 @@
-from rest_framework import viewsets
+from rest_framework import viewsets, status, mixins
+from django.contrib.auth import get_user_model
 from rest_framework.response import Response
-from rest_framework import status
-from rest_framework import mixins
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import AllowAny, IsAuthenticated, SAFE_METHODS
 from rest_framework.decorators import action
@@ -10,15 +9,21 @@ from rest_framework.views import APIView
 from django_filters.rest_framework import DjangoFilterBackend
 from django.shortcuts import get_object_or_404
 
+from djoser.views import UserViewSet
+
 from recipes.models import (Ingredient, Recipe, Favorites, ShoppingList, Tag)
-from users.models import User
+# from users.models import User
 from users.serializers import UserSerializer
 from api.downloads import shopping_list
 from api.serializers import (IngredientSerializer, RecipeSerializer,
-                             AddRecipeSerializer, FavoritesSerializer,
-                             TagSerializer, SignupSerializer, TokenSerializer)
+                             AddRecipeSerializer, ShortRecipeSerializer,
+                             TagSerializer, SignupSerializer)
 from api.permissions import IsAuthorOrAdminOrReadOnly
 from api.filters import IngredientFilter, RecipeFilter
+from api.paginators import LimitPageNumberPaginator
+
+
+User = get_user_model()
 
 
 class IngredientViewSet(mixins.ListModelMixin,
@@ -46,111 +51,133 @@ class RecipeViewSet(viewsets.ModelViewSet):
     """ViewSet для модели Recipe."""
 
     queryset = Recipe.objects.all()
-    permission_classes = (IsAuthorOrAdminOrReadOnly, )
+    # permission_classes = (IsAuthorOrAdminOrReadOnly, )
     filter_backends = (DjangoFilterBackend, )
-    pagination_class = PageNumberPagination
+    pagination_class = LimitPageNumberPaginator
     filterset_class = RecipeFilter
 
     def get_serializer_class(self):
-        if self.request.method in SAFE_METHODS:
+        print('get_serializer_class', self.request.method)
+        if self.action in ('list', 'retrieve'):
+        # if self.request.method in SAFE_METHODS:
             return RecipeSerializer
         return AddRecipeSerializer
 
     @action(
         detail=True,
-        methods=['post', 'delete'],
+        methods=['POST', 'DELETE'],
         permission_classes=[IsAuthenticated]
     )
-    def favorite(self, request, pk=None):
+    def favorite(self, request, pk):
+        user = request.user
+        recipe = get_object_or_404(Recipe, pk=pk)
+        serializer = ShortRecipeSerializer(
+            recipe,
+            context={'request': request}
+        )
         if request.method == 'POST':
-            return self.add_recipe(Favorites, request, pk)
-        else:
-            return self.delete_recipe(Favorites, request, pk)
-
-    def add_recipe(self, model, request, pk):
-        recipe = get_object_or_404(Recipe, pk=pk)
-        user = self.request.user
-        if Favorites.objects.filter(recipe=recipe, user=user).exists():
-            raise ValidationError('Рецепт уже добавлен!')
-        Favorites.objects.create(recipe=recipe, user=user)
-        serializer = FavoritesSerializer(recipe)
-        return Response(data=serializer.data, status=status.HTTP_201_CREATED)
-
-    def delete_recipe(self, model, request, pk):
-        recipe = get_object_or_404(Recipe, pk=pk)
-        user = self.request.user
-        obj = get_object_or_404(model, recipe=recipe, user=user)
-        obj.delete()
+            Favorites.objects.create(user=user, recipe=recipe)
+            return Response(
+                data=serializer.data,
+                status=status.HTTP_201_CREATED
+            )
+        try:
+            Favorites.objects.get(user=user, recipe=recipe).delete()
+        except Favorites.DoesNotExist:
+            return Response(
+                data={'error': 'Этого рецепта нет в списке.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+    # def add_recipe(self, model, request, pk):
+    #     recipe = get_object_or_404(Recipe, pk=pk)
+    #     user = self.request.user
+    #     if Favorites.objects.filter(recipe=recipe, user=user).exists():
+    #         raise ValidationError('Рецепт уже добавлен!')
+    #     Favorites.objects.create(recipe=recipe, user=user)
+    #     serializer = FavoritesSerializer(recipe)
+    #     return Response(data=serializer.data, status=status.HTTP_201_CREATED)
+
+    # def delete_recipe(self, model, request, pk):
+    #     recipe = get_object_or_404(Recipe, pk=pk)
+    #     user = self.request.user
+    #     obj = get_object_or_404(model, recipe=recipe, user=user)
+    #     obj.delete()
+    #     return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(
         detail=True,
-        methods=['post', 'delete'],
+        methods=['POST', 'DELETE'],
         permission_classes=[IsAuthenticated]
     )
     def shopping_cart(self, request, pk):
+        user = request.user
+        recipe = get_object_or_404(Recipe, pk=pk)
+        serializer = ShortRecipeSerializer(
+            recipe,
+            context={'request': request}
+        )
+        shopping_list_obj, _ = ShoppingList.objects.get_or_create(
+            owner=user
+        )
         if request.method == 'POST':
-            recipe = get_object_or_404(Recipe, id=pk)
-            if ShoppingList.objects.filter(user=request.user,
-                                           recipe=recipe).exists():
-                return Response(status=status.HTTP_400_BAD_REQUEST)
-            ShoppingList.objects.create(user=request.user, recipe=recipe)
-            serializer = AddRecipeSerializer(recipe)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        cart = ShoppingList.objects.filter(user=request.user, recipe__id=pk)
-        if cart.exists():
-            cart.delete()
-            return Response(status=status.HTTP_204_NO_CONTENT)
-        return Response(status=status.HTTP_400_BAD_REQUEST)
+            ShoppingList.objects.create(
+                shopping_list=shopping_list_obj,
+                recipe=recipe
+            )
+            return Response(
+                data=serializer.data,
+                status=status.HTTP_201_CREATED)
+        try:
+            ShoppingList.objects.get(
+                shopping_list=shopping_list_obj,
+                recipe=recipe
+            ).delete()
+        except ShoppingList.DoesNotExist:
+            return Response(
+                data={'error': 'Данный рецепт отсутствует в вашем списке.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(
         detail=False,
-        methods=['get'],
+        methods=['GET'],
         permission_classes=[IsAuthenticated]
     )
     def download_shopping_list(self, request):
+        print('DOWNLOAD_SHOPPING_LIST')
         author = User.objects.get(id=self.request.user.pk)
         if author.shopping_list.exists():
             return shopping_list(self, request, author)
         return Response(status=status.HTTP_404_NOT_FOUND)
 
 
-class Signup(APIView):
-    """Регистрация пользователя."""
+# class Signup(UserViewSet):
+#     """Регистрация пользователя."""
 
-    permission_classes = (AllowAny,)
-    serializer_class = SignupSerializer
+#     permission_classes = (AllowAny,)
+#     serializer_class = SignupSerializer
 
-    def post(self, request):
-        # serializer = SignupSerializer(data=request.data)
-        # serializer.is_valid(raise_exception=True)
-        # username = serializer.validated_data["username"]
-        # email = serializer.validated_data["email"]
-        # user, _ = User.objects.get_or_create(username=username, email=email)
-        # # confirmation_code = generate_confirmation_code(user)
-        # # send_mail(
-        # #     "Confirmation Code",
-        # #     f"Your confirmation code is {confirmation_code}",
-        # #     settings.DEFAULT_FROM_EMAIL,
-        # #     [user.email],
-        # # )
-        # return Response(serializer.data, status=status.HTTP_200_OK)
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        user = serializer.save()
-        return Response({
-            "user": UserSerializer(user, context=self.get_serializer_context()).data,
-            "message": "Пользователь успешно создан",
-        })
-
-
-class Token(APIView):
-    """Получения токена."""
-
-    permission_classes = (AllowAny,)
-
-    def post(self, request):
-        serializer = TokenSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        token_data = serializer.save()
-        return Response(token_data, status=status.HTTP_200_OK)
+#     def post(self, request):
+#         # serializer = SignupSerializer(data=request.data)
+#         # serializer.is_valid(raise_exception=True)
+#         # username = serializer.validated_data["username"]
+#         # email = serializer.validated_data["email"]
+#         # user, _ = User.objects.get_or_create(username=username, email=email)
+#         # # confirmation_code = generate_confirmation_code(user)
+#         # # send_mail(
+#         # #     "Confirmation Code",
+#         # #     f"Your confirmation code is {confirmation_code}",
+#         # #     settings.DEFAULT_FROM_EMAIL,
+#         # #     [user.email],
+#         # # )
+#         # return Response(serializer.data, status=status.HTTP_200_OK)
+#         serializer = self.get_serializer(data=request.data)
+#         serializer.is_valid(raise_exception=True)
+#         user = serializer.save()
+#         return Response({
+#             "user": UserSerializer(user, context=self.get_serializer_context()).data,
+#             "message": "Пользователь успешно создан",
+#         })

@@ -4,6 +4,17 @@ from .models import (Ingredient, Tag, Recipe, IngredientRecipe, Subscriptions,
                      Favorites, ShoppingList)
 
 
+class DisplayModelAdmin(admin.ModelAdmin):
+    """Display all fields for any model."""
+
+    def __init__(self, model, admin_site):
+        """For the list display."""
+        self.list_display = [
+            field.name for field in model._meta.fields if field.name != 'id'
+        ]
+        super().__init__(model, admin_site)
+
+
 @admin.register(Ingredient)
 class IngredientAdmin(admin.ModelAdmin):
     """Админ-панель для управления объектами модели Ingredient."""
@@ -26,7 +37,7 @@ class TagAdmin(admin.ModelAdmin):
 class RecipeAdmin(admin.ModelAdmin):
     """Админ-панель для управления объектами модели Recipe."""
 
-    list_display = ('id', 'author', 'name', 'pub_date')
+    list_display = ('author', 'name', 'pub_date')
     search_fields = ('name',)
     list_filter = ('pub_date', 'author', 'name')
 
@@ -35,8 +46,6 @@ class RecipeAdmin(admin.ModelAdmin):
 class IngredientRecipeAdmin(admin.ModelAdmin):
     """Админ-панель для управления объектами модели IngredientRecipe."""
 
-    list_display = ('id', 'recipe', 'ingredient', 'amount',)
-    list_filter = ('recipe',)
     search_fields = ('name',)
 
 

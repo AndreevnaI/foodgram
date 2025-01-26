@@ -7,7 +7,7 @@ from rest_framework.response import Response
 
 from .models import User
 from recipes.models import Subscriptions
-from .serializers import UserSerializer, SubscriptionsSerializer, Base64ImageField
+from .serializers import UserSerializer, SubscriptionSerializer
 from api.paginators import LimitPageNumberPaginator
 from rest_framework.status import (
     HTTP_200_OK, HTTP_201_CREATED, HTTP_204_NO_CONTENT
@@ -19,7 +19,7 @@ class UserViewSet(djoser_views.UserViewSet):
 
     queryset = User.objects.all()
     serializer_class = UserSerializer
-
+    pagination_class = LimitPageNumberPaginator
 
     @action(detail=False, methods=('get',), permission_classes=(IsAuthenticated,))
     def me(self, request):
@@ -48,9 +48,8 @@ class UserViewSet(djoser_views.UserViewSet):
         """Удаляет аватар текущего пользователя."""
         User.objects.filter(pk=request.user.id).update(avatar=None)
         return Response(status=HTTP_204_NO_CONTENT)
-    
+
     @action(detail=True, permission_classes=(IsAuthenticated,))
     def shopping_cart(self, request, pk):
         """Операции со списком покупок (добавление/удаление)."""
         pass
-

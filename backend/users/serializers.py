@@ -7,60 +7,12 @@ from recipes.models import Subscriptions, Recipe
 
 
 from django.db.models import F
-from django.contrib.auth.validators import UnicodeUsernameValidator
-from rest_framework.validators import UniqueTogetherValidator
+from django.shortcuts import get_object_or_404
 from django.core.files.base import ContentFile
-from drf_extra_fields.fields import Base64ImageField
 
-
-
-from rest_framework import serializers
-
-from recipes.models import (Tag, Ingredient, Recipe,
-                            Favorites)
 
 import base64
-from djoser.serializers import UserSerializer, UserCreateSerializer
 from api.serializers import ShortRecipeSerializer
-
-class UserSerializer(UserSerializer):
-    """Сериализатор для кастомной модели User."""
-
-    is_subscribed = serializers.SerializerMethodField(
-        method_name='get_is_subscribed'
-    )
-    avatar = serializers.SerializerMethodField(required=False, allow_null=True)
-
-    class Meta:
-        model = User
-        fields = (
-            'email',
-            'id',
-            'username',
-            'first_name',
-            'last_name',
-            'avatar',
-            'is_subscribed',
-        )
-
-
-    def get_is_subscribed(self, data):
-        request = self.context.get('request')
-        if request and request.user.is_authenticated:
-            return data.followed.filter(user=request.user).exists()
-        return False
-
-    def get_avatar(self, data):
-
-        request = self.context.get("request")
-        if data.avatar:
-            return request.build_absolute_uri(data.avatar.url)
-        return None
-
-        # if request := self.context.get('request'):
-        #     if request.method == 'PUT' and not data:
-        #         raise serializers.ValidationError('Выберите фото')
-        # return data
 
 
 class Base64ImageField(serializers.ImageField):
@@ -77,7 +29,79 @@ class Base64ImageField(serializers.ImageField):
         fields = ('avatar',)
 
 
-class SubscriptionsSerializer(serializers.ModelSerializer):
+class UserSerializer(UserSerializer):
+    """Сериализатор для кастомной модели User."""
+
+    is_subscribed = serializers.SerializerMethodField(
+        method_name='get_is_subscribed'
+    )
+    avatar = Base64ImageField(required=False, allow_null=True)
+
+    class Meta:
+        model = User
+        fields = (
+            'email',
+            'id',
+            'username',
+            'first_name',
+            'last_name',
+            'avatar',
+            'is_subscribed',
+        )
+
+    def get_is_subscribed(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return request.user.follower.filter(author=obj).exists()
+        return False
+
+    def get_avatar(self, data):
+        request = self.context.get('request')
+        if data.avatar:
+            return request.build_absolute_uri(data.avatar.url)
+        return None
+
+        # if request := self.context.get('request'):
+        #     if request.method == 'PUT' and not data:
+        #         raise serializers.ValidationError('Выберите фото')
+        # return data
+
+
+class SubscriptionSerializer(serializers.Serializer):
+    """Для валидации и создания подписки"""
+
+    def validate(self, data):
+        user = self.context['request'].user
+        subs_id = self.context.get('user_pk')
+        action = self.context.get('action')
+
+        subs = get_object_or_404(User, pk=subs_id)
+        if not subs:
+            raise serializers.ValidationError('А на кого подписываемся?')
+        if user == subs:
+            raise serializers.ValidationError('На себя нельзя подписаться')
+
+        subscription = user.follower.filter(cooker=subs)
+        if action == 'delete_subs':
+            if not subscription:
+                raise serializers.ValidationError('Такой подписки нет')
+        if action == 'create_subs':
+            if subscription:
+                raise serializers.ValidationError('Подписка уже есть')
+        return data
+
+    def create(self, validated_data):
+        limit_param = self.context.get('limit_param')
+        subs = get_object_or_404(User, pk=validated_data.get('pk'))
+        Subscriptions.objects.create(
+            user=self.context['request'].user,
+            cooker=subs)
+        return UserSubscriptionsSerializer(
+            subs,
+            context={'limit_param': limit_param})
+
+
+class UserSubscriptionsSerializer(serializers.ModelSerializer):
     """Сериализатор для модели Subscriptions."""
 
     is_subscribed = serializers.SerializerMethodField()
@@ -98,28 +122,28 @@ class SubscriptionsSerializer(serializers.ModelSerializer):
             'avatar'
         )
 
-    def validate(self, data):
-        author = self.context.get('author')
-        user = self.context.get('request').user
-        if user == author:
-            raise serializers.ValidationError(
-                'Невозможно подписаться на самого себя!',
-            )
-        if Subscriptions.objects.filter(
-                author=author,
-                user=user).exists():
-            raise serializers.ValidationError(
-                'Вы уже подписаны на этого пользователя!',
-            )
-        return data
+    # def validate(self, data):
+    #     author = self.context.get('author')
+    #     user = self.context.get('request').user
+    #     if user == author:
+    #         raise serializers.ValidationError(
+    #             'Невозможно подписаться на самого себя!',
+    #         )
+    #     if Subscriptions.objects.filter(
+    #             author=author,
+    #             user=user).exists():
+    #         raise serializers.ValidationError(
+    #             'Вы уже подписаны на этого пользователя!',
+    #         )
+    #     return data
 
-    def get_is_subscribed(self, obj):
-        user = self.context.get('request').user
-        if not user.is_anonymous:
-            return Subscriptions.objects.filter(
-                user=obj.user,
-                author=obj.author).exists()
-        return False
+    # def get_is_subscribed(self, obj):
+    #     user = self.context.get('request').user
+    #     if not user.is_anonymous:
+    #         return Subscriptions.objects.filter(
+    #             user=obj.user,
+    #             author=obj.author).exists()
+    #     return False
 
     # def get_recipes(self, obj):
     #     request = self.context.get('request')

@@ -36,6 +36,10 @@ class IngredientViewSet(mixins.ListModelMixin,
     permission_classes = (AllowAny, )
     filter_backends = (IngredientFilter, )
 
+    def list(self, request):
+        serializer = self.serializer_class(self.queryset, many=True)
+        return Response(serializer.data)
+
 
 class TagViewSet(mixins.ListModelMixin,
                  mixins.RetrieveModelMixin,
@@ -45,6 +49,10 @@ class TagViewSet(mixins.ListModelMixin,
     queryset = Tag.objects.all()
     serializer_class = TagSerializer
     permission_classes = (AllowAny,)
+
+    def list(self, request):
+        serializer = self.serializer_class(self.queryset, many=True)
+        return Response(serializer.data)
 
 
 class RecipeViewSet(viewsets.ModelViewSet):
@@ -58,7 +66,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
 
     def get_serializer_class(self):
         print('get_serializer_class', self.request.method)
-        if self.action in ('list', 'retrieve'):
+        if self.action in ('list', 'retrieve', 'get_link'):
         # if self.request.method in SAFE_METHODS:
             return RecipeSerializer
         return AddRecipeSerializer
@@ -152,7 +160,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
         if author.shopping_list.exists():
             return shopping_list(self, request, author)
         return Response(status=status.HTTP_404_NOT_FOUND)
-
+    
 
 # class Signup(UserViewSet):
 #     """Регистрация пользователя."""

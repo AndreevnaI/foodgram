@@ -65,11 +65,9 @@ class RecipeViewSet(viewsets.ModelViewSet):
     filterset_class = RecipeFilter
 
     def get_serializer_class(self):
-        print('get_serializer_class', self.request.method)
-        if self.action in ('list', 'retrieve', 'get_link'):
-        # if self.request.method in SAFE_METHODS:
-            return RecipeSerializer
-        return AddRecipeSerializer
+        if self.action == 'create':
+            return AddRecipeSerializer
+        return RecipeSerializer
 
     @action(
         detail=True,
@@ -98,56 +96,62 @@ class RecipeViewSet(viewsets.ModelViewSet):
             )
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-    # def add_recipe(self, model, request, pk):
-    #     recipe = get_object_or_404(Recipe, pk=pk)
-    #     user = self.request.user
-    #     if Favorites.objects.filter(recipe=recipe, user=user).exists():
-    #         raise ValidationError('Рецепт уже добавлен!')
-    #     Favorites.objects.create(recipe=recipe, user=user)
-    #     serializer = FavoritesSerializer(recipe)
-    #     return Response(data=serializer.data, status=status.HTTP_201_CREATED)
 
-    # def delete_recipe(self, model, request, pk):
+    # @action(
+    #     detail=True,
+    #     methods=['POST', 'DELETE'],
+    #     permission_classes=[IsAuthenticated]
+    # )
+    # def shopping_cart(self, request, pk):
+    #     user = request.user
     #     recipe = get_object_or_404(Recipe, pk=pk)
-    #     user = self.request.user
-    #     obj = get_object_or_404(model, recipe=recipe, user=user)
-    #     obj.delete()
+    #     serializer = ShortRecipeSerializer(
+    #         recipe,
+    #         context={'request': request}
+    #     )
+    #     shopping_list_obj, _ = ShoppingList.objects.get_or_create(
+    #         user=user
+    #     )
+    #     if request.method == 'POST':
+    #         ShoppingList.objects.create(
+    #             shopping_list=shopping_list_obj,
+    #             recipe=recipe
+    #         )
+    #         return Response(
+    #             data=serializer.data,
+    #             status=status.HTTP_201_CREATED)
+    #     try:
+    #         ShoppingList.objects.get(
+    #             shopping_list=shopping_list_obj,
+    #             recipe=recipe
+    #         ).delete()
+    #     except ShoppingList.DoesNotExist:
+    #         return Response(
+    #             data={'error': 'Данный рецепт отсутствует в вашем списке.'},
+    #             status=status.HTTP_400_BAD_REQUEST
+    #         )
     #     return Response(status=status.HTTP_204_NO_CONTENT)
 
-    @action(
-        detail=True,
-        methods=['POST', 'DELETE'],
-        permission_classes=[IsAuthenticated]
-    )
+    @action(detail=True, permission_classes=(IsAuthenticated,))
     def shopping_cart(self, request, pk):
-        user = request.user
-        recipe = get_object_or_404(Recipe, pk=pk)
+        """"""
+        pass
+
+    @shopping_cart.mapping.post
+    def add_into_shopping_cart(self, request, pk):
+        """Добавляет рецепт в список покупок пользователя."""
         serializer = ShortRecipeSerializer(
-            recipe,
-            context={'request': request}
+            data=request.data,
+            context={
+                'request': request,
+                'recipe_pk': pk,
+                'action': 'add',
+                'model': ShoppingList
+            }
         )
-        shopping_list_obj, _ = ShoppingList.objects.get_or_create(
-            owner=user
-        )
-        if request.method == 'POST':
-            ShoppingList.objects.create(
-                shopping_list=shopping_list_obj,
-                recipe=recipe
-            )
-            return Response(
-                data=serializer.data,
-                status=status.HTTP_201_CREATED)
-        try:
-            ShoppingList.objects.get(
-                shopping_list=shopping_list_obj,
-                recipe=recipe
-            ).delete()
-        except ShoppingList.DoesNotExist:
-            return Response(
-                data={'error': 'Данный рецепт отсутствует в вашем списке.'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        return Response(status=status.HTTP_204_NO_CONTENT)
+        serializer.is_valid(raise_exception=True)
+        short_recipe = serializer.save(pk=pk)
+        return Response(short_recipe.data, status=status.HTTP_201_CREATED)
 
     @action(
         detail=False,

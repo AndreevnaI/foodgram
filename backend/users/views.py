@@ -7,7 +7,7 @@ from rest_framework.response import Response
 
 from .models import User
 from recipes.models import Subscriptions
-from .serializers import UserSerializer, SubscriptionSerializer
+from .serializers import UserSerializer, UserSubscriptionsSerializer
 from api.paginators import LimitPageNumberPaginator
 from rest_framework.status import (
     HTTP_200_OK, HTTP_201_CREATED, HTTP_204_NO_CONTENT
@@ -53,3 +53,15 @@ class UserViewSet(djoser_views.UserViewSet):
     def shopping_cart(self, request, pk):
         """Операции со списком покупок (добавление/удаление)."""
         pass
+
+    @action(detail=False, permission_classes=(IsAuthenticated,))
+    def subscriptions(self, request):
+        """Список подписок."""
+        subscribtions = self.queryset.filter(
+            follower__user=self.request.user
+        )
+        page = self.paginate_queryset(subscribtions)
+        serializer = UserSubscriptionsSerializer(
+            page, many=True, context={'request': request}
+        )
+        return self.get_paginated_response(serializer.data)

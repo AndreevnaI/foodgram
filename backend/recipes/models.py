@@ -78,11 +78,14 @@ class Recipe(models.Model):
     )
     ingredients = models.ManyToManyField(
         Ingredient,
-        verbose_name='Ингредиент',
+        through='IngredientRecipe',
+        related_name='recipes',
+        verbose_name='Ингредиенты',
         help_text='Выберите ингредиенты'
     )
     tags = models.ManyToManyField(
         Tag,
+        through='RecipeTag',
         related_name='recipes',
         verbose_name='Теги',
         help_text='Выберите тег'
@@ -224,3 +227,26 @@ class ShoppingList(models.Model):
 
     def __str__(self):
         return f'{self.recipe}'
+
+
+class RecipeTag(models.Model):
+    """Тэги для рецепта."""
+    recipe = models.ForeignKey(
+        Recipe, on_delete=models.CASCADE,
+        related_name='recipe_tags',
+        verbose_name='Рецепт')
+    tag = models.ForeignKey(
+        Tag, on_delete=models.CASCADE,
+        related_name='recipe_tags',
+        verbose_name='Тег')
+
+    class Meta:
+        ordering = ('recipe', 'tag')
+        verbose_name = 'тэг для рецепта'
+        verbose_name_plural = 'Тэги для рецепта'
+        constraints = [
+            models.UniqueConstraint(
+                fields=['recipe', 'tag'],
+                name='unique_recipe_tag'
+            )
+        ]

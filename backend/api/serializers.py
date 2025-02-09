@@ -7,6 +7,7 @@ from djoser.serializers import UserCreateSerializer
 from rest_framework.exceptions import ValidationError
 from rest_framework.validators import UniqueTogetherValidator
 # from rest_framework_simplejwt.tokens import RefreshToken
+from django.db.models import F
 
 from .constants import (
     EMAIL_MAX_LENGTH,
@@ -15,7 +16,7 @@ from .constants import (
 )
 from .utils import validate_confirmation_code
 from recipes.models import (Ingredient, Tag, Recipe, IngredientRecipe,
-                            Favorites, ShoppingList)
+                            Favorites, ShoppingList, RecipeTag)
 from users.serializers import UserSerializer
 
 
@@ -91,9 +92,7 @@ class RecipeSerializer(serializers.ModelSerializer):
     """Сериализатор для модели Recipe."""
 
     author = UserSerializer()
-    tags = TagSerializer(
-        many=True,
-    )
+    tags = TagSerializer(many=True,)
     ingredients = serializers.SerializerMethodField()
     is_favorited = serializers.SerializerMethodField()
     is_in_shopping_cart = serializers.SerializerMethodField()
@@ -127,6 +126,11 @@ class RecipeSerializer(serializers.ModelSerializer):
         # return False
         return self.get_is_recipe(obj, ShoppingList)
 
+    def get_ingredients(self, obj):
+        return obj.ingredients.values('id', 'name', 'measurement_unit',
+                                      amount=F('ingredientrecipe__amount')
+                                      )
+
 
 class ShoppingListSerializer(serializers.ModelSerializer):
 
@@ -150,71 +154,57 @@ class ShoppingListSerializer(serializers.ModelSerializer):
 class AddRecipeSerializer(serializers.ModelSerializer):
     """Сериализатор для модели Recipe - работа с данными."""
 
-    # author = serializers.HiddenField(
-    #     default=serializers.CurrentUserDefault())
+    author = serializers.HiddenField(
+        default=serializers.CurrentUserDefault())
     ingredients = IngredientRecipeSerializer(
         many=True,
         required=True,
-        write_only=True
+        write_only=True,
+        allow_null=False,
+        allow_empty=False,
     )
     tags = serializers.PrimaryKeyRelatedField(
         queryset=Tag.objects.all(),
         many=True,
         required=True,
+        allow_null=False,
+        allow_empty=False,
     )
     image = Base64ImageField(required=True, allow_null=False)
-    # name = serializers.CharField(required=True, max_length=256)
-    # cooking_time = serializers.IntegerField(
-    #     max_value=32000, min_value=1)
+    name = serializers.CharField(required=True, max_length=256)
+    cooking_time = serializers.IntegerField(
+        max_value=32000, min_value=1)
 
     class Meta:
         model = Recipe
         fields = ('name', 'image', 'text', 'ingredients',
-                  'tags', 'cooking_time')
-
-    def validate_ingredients(self, data):
-        if 'ingredients' not in data:
-            raise ValidationError(
-                'Нужно выбрать ингредиент! Поле не может быть пустым.'
-            )
-        ingredients_list = [item['id'].id for item in data]
-        if len(ingredients_list) != len(set(ingredients_list)):
-            raise serializers.ValidationError(
-                'Ингридиенты повторяются!'
-            )
-        return data
-
-    def validate_tags(self, data):
-        if 'tags' not in data:
-            raise ValidationError(
-                'Выберите тег.'
-            )
-        tags_list = [item.id for item in data]
-        if len(tags_list) != len(set(tags_list)):
-            raise serializers.ValidationError(
-                'Теги повторяются!'
-            )
-        return data
-
-    def add_ingredients(self, ingredients, recipe):
-        for ingredient in ingredients:
-            IngredientRecipe.objects.update_or_create(
-                recipe=recipe,
-                ingredient=ingredient['id'],
-                amount=ingredient['amount']
-            )
-
-    def add_tags(self, tags, recipe):
-        recipe.tags.set(tags)
+                  'tags', 'cooking_time', 'author')
 
     def create(self, validated_data):
         ingredients = validated_data.pop('ingredients')
         tags = validated_data.pop('tags')
-        user = self.context.get('request').user
-        recipe = Recipe.objects.create(**validated_data, author=user)
-        self.add_tags(tags, recipe)
-        self.add_ingredients(ingredients, recipe)
+        # user = self.context.get('request').user
+        recipe = Recipe.objects.create(**validated_data)
+        self.create_tags(tags, recipe)
+        self.create_ingredients(ingredients, recipe)
+        recipe.save()
+        print('validated_data', validated_data)
         return recipe
+
+    def create_tags(self, tags, recipe):
+        tag_ids = set([tag.id for tag in tags])
+        RecipeTag.objects.bulk_create([
+            RecipeTag(recipe_id=recipe.id, tag_id=tag_id) for tag_id in tag_ids
+        ])
+
+    def create_ingredients(self, ingredients, recipe):
+        IngredientRecipe.objects.bulk_create([
+            IngredientRecipe(
+                recipe=recipe,
+                ingredient=dict(ingredient).get('ingredient'),
+                amount=dict(ingredient).get('amount')
+            ) for ingredient in ingredients
+        ])
 
     def update(self, instance, validated_data):
         recipe = instance
@@ -222,7 +212,8 @@ class AddRecipeSerializer(serializers.ModelSerializer):
         recipe.ingredients.clear()
         tags = validated_data.pop('tags')
         ingredients = validated_data.pop('ingredients')
-        self.add_ingredients(recipe, tags, ingredients)
+        self.create_tags(recipe, tags)
+        self.create_ingredients(recipe, ingredients)
         recipe.save()
         return recipe
 
@@ -234,8 +225,8 @@ class AddRecipeSerializer(serializers.ModelSerializer):
         return RecipeSerializer(instance).data
 
 
-class AuthorRecipeSerializer(serializers.ModelSerializer):
-    """Сериалайзер для наследования моделей вида Автор и Рецепт"""
+# class AuthorRecipeSerializer(serializers.ModelSerializer):
+#     """Сериалайзер для наследования моделей вида Автор и Рецепт"""
 
 
 # class FavoritesSerializer(serializers.ModelSerializer):

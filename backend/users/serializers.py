@@ -71,23 +71,37 @@ class SubscriptionSerializer(serializers.Serializer):
     """Для валидации и создания подписки"""
 
     def validate(self, data):
-        user = self.context['request'].user
-        subs_id = self.context.get('user_pk')
-        action = self.context.get('action')
+        # user = self.context['request'].user
+        # subs_id = self.context.get('user_pk')
+        # action = self.context.get('action')
 
-        subs = get_object_or_404(User, pk=subs_id)
-        if not subs:
-            raise serializers.ValidationError('А на кого подписываемся?')
-        if user == subs:
-            raise serializers.ValidationError('На себя нельзя подписаться')
+        # subs = get_object_or_404(User, pk=subs_id)
+        # if not subs:
+        #     raise serializers.ValidationError('А на кого подписываемся?')
+        # if user == subs:
+        #     raise serializers.ValidationError('На себя нельзя подписаться')
 
-        subscription = user.follower.filter(cooker=subs)
-        if action == 'delete_subs':
-            if not subscription:
-                raise serializers.ValidationError('Такой подписки нет')
-        if action == 'create_subs':
-            if subscription:
-                raise serializers.ValidationError('Подписка уже есть')
+        # subscription = user.follower.filter(cooker=subs)
+        # if action == 'delete_subs':
+        #     if not subscription:
+        #         raise serializers.ValidationError('Такой подписки нет')
+        # if action == 'create_subs':
+        #     if subscription:
+        #         raise serializers.ValidationError('Подписка уже есть')
+        # return data
+
+        author = self.context.get('author')
+        user = self.context.get('request').user
+        if user == author:
+            raise serializers.ValidationError(
+                'Невозможно подписаться на самого себя!',
+            )
+        if Subscriptions.objects.filter(
+                author=author,
+                user=user).exists():
+            raise serializers.ValidationError(
+                'Вы уже подписаны на этого пользователя!',
+            )
         return data
 
     def create(self, validated_data):
@@ -137,27 +151,13 @@ class UserSubscriptionsSerializer(serializers.ModelSerializer):
     #         )
     #     return data
 
-    # def get_is_subscribed(self, obj):
-    #     user = self.context.get('request').user
-    #     if not user.is_anonymous:
-    #         return Subscriptions.objects.filter(
-    #             user=obj.user,
-    #             author=obj.author).exists()
-    #     return False
+    def get_is_subscribed(self, obj):
+        if request := self.context.get('request'):
+            if request.user.is_anonymous:
+                return False
+            return request.user.follower.filter(author=obj).exists()
+        return False
 
-    # def get_recipes(self, obj):
-    #     request = self.context.get('request')
-    #     if request.GET.get('recipe_limit'):
-    #         recipe_limit = int(request.GET.get('recipe_limit'))
-    #         queryset = Recipe.objects.filter(
-    #             author=obj.author)[:recipe_limit]
-    #     else:
-    #         queryset = Recipe.objects.filter(
-    #             author=obj.author)
-    #     serializer = recipes.serializers.ShortRecipeSerializer(
-    #         queryset, read_only=True, many=True
-    #     )
-    #     return serializer.data
     def get_recipes(self, obj):
         recipes = obj.recipes.all()
         if limit_param := self.context.get('limit_param'):

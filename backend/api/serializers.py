@@ -51,21 +51,6 @@ class IngredientRecipeSerializer(serializers.ModelSerializer):
         fields = ('id', 'amount')
 
 
-class RecipeShowIngredientSerializer(serializers.ModelSerializer):
-    """
-    Сериализатор для IngredientRecipe (представление ингриента для рецепта).
-    """
-
-    id = serializers.IntegerField(source='ingredient.id')
-    name = serializers.CharField(source='ingredient.name')
-    measurement_unit = serializers.CharField(
-        source='ingredient.measurement_unit'
-    )
-
-    class Meta:
-        model = IngredientRecipe
-        fields = ('id', 'name', 'measurement_unit', 'amount')
-
 
 class ShortRecipeSerializer(serializers.ModelSerializer):
     """Сериалайзер представления ответа укороченных данных о Рецепте"""
@@ -73,6 +58,30 @@ class ShortRecipeSerializer(serializers.ModelSerializer):
     class Meta:
         model = Recipe
         fields = ('id', 'name', 'image', 'cooking_time')
+
+
+class RecipeShowIngredientSerializer(serializers.ModelSerializer):
+    """
+    Сериализатор для IngredientRecipe (представление ингриента для рецепта).
+    """
+
+    # id = serializers.IntegerField(source='ingredient.id')
+    # name = serializers.CharField(source='ingredient.name')
+    # measurement_unit = serializers.CharField(
+    #     source='ingredient.measurement_unit'
+    # )
+
+    # class Meta:
+    #     model = IngredientRecipe
+    #     fields = ('id', 'name', 'measurement_unit', 'amount')
+
+    def create(self, validated_data):
+        model = self.context.get('model')
+        recipe = get_object_or_404(Recipe, pk=validated_data.get('pk'))
+        model.objects.create(
+            user=self.context['request'].user,
+            recipe=recipe)
+        return ShortRecipeSerializer(recipe)
 
 
 class RecipeIngredientSerializer(serializers.ModelSerializer):
@@ -151,7 +160,7 @@ class ShoppingListSerializer(serializers.ModelSerializer):
         return ShortRecipeSerializer(instance.recipe, context=context).data
 
 
-class AddRecipeSerializer(serializers.ModelSerializer):
+class AddEditRecipeSerializer(serializers.ModelSerializer):
     """Сериализатор для модели Recipe - работа с данными."""
 
     author = serializers.HiddenField(
@@ -183,12 +192,10 @@ class AddRecipeSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         ingredients = validated_data.pop('ingredients')
         tags = validated_data.pop('tags')
-        # user = self.context.get('request').user
         recipe = Recipe.objects.create(**validated_data)
         self.create_tags(tags, recipe)
         self.create_ingredients(ingredients, recipe)
         recipe.save()
-        print('validated_data', validated_data)
         return recipe
 
     def create_tags(self, tags, recipe):
@@ -212,8 +219,8 @@ class AddRecipeSerializer(serializers.ModelSerializer):
         recipe.ingredients.clear()
         tags = validated_data.pop('tags')
         ingredients = validated_data.pop('ingredients')
-        self.create_tags(recipe, tags)
-        self.create_ingredients(recipe, ingredients)
+        self.create_tags(tags, recipe)
+        self.create_ingredients(ingredients, recipe)
         recipe.save()
         return recipe
 

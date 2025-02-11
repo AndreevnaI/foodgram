@@ -16,7 +16,7 @@ from recipes.models import (Ingredient, Recipe, Favorites, ShoppingList, Tag)
 from users.serializers import UserSerializer
 from api.downloads import shopping_list
 from api.serializers import (IngredientSerializer, RecipeSerializer,
-                             AddRecipeSerializer, ShortRecipeSerializer,
+                             AddEditRecipeSerializer, ShortRecipeSerializer,
                              TagSerializer, SignupSerializer)
 from api.permissions import IsAuthorOrAdminOrReadOnly
 from api.filters import IngredientFilter, RecipeFilter
@@ -65,8 +65,8 @@ class RecipeViewSet(viewsets.ModelViewSet):
     filterset_class = RecipeFilter
 
     def get_serializer_class(self):
-        if self.action == 'create':
-            return AddRecipeSerializer
+        if self.action in ['create', 'update', 'partial_update']:
+            return AddEditRecipeSerializer
         return RecipeSerializer
 
     @action(

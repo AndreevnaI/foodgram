@@ -1,4 +1,7 @@
+import short_url
+from django.http import HttpResponse
 from rest_framework import viewsets, status, mixins
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from rest_framework.response import Response
 from rest_framework.pagination import PageNumberPagination
@@ -11,13 +14,13 @@ from django.shortcuts import get_object_or_404
 
 from djoser.views import UserViewSet
 
-from recipes.models import (Ingredient, Recipe, Favorites, ShoppingList, Tag)
+from recipes.models import (Ingredient, Recipe, Favorites, ShoppingList, Tag, IngredientRecipe)
 # from users.models import User
 from users.serializers import UserSerializer
-from api.downloads import shopping_list
+# from api.downloads import shopping_list
 from api.serializers import (IngredientSerializer, RecipeSerializer,
                              AddEditRecipeSerializer, ShortRecipeSerializer,
-                             TagSerializer, SignupSerializer)
+                             TagSerializer, RecipeShowIngredientSerializer)
 from api.permissions import IsAuthorOrAdminOrReadOnly
 from api.filters import IngredientFilter, RecipeFilter
 from api.paginators import LimitPageNumberPaginator
@@ -71,6 +74,19 @@ class RecipeViewSet(viewsets.ModelViewSet):
 
     @action(
         detail=True,
+        permission_classes=(AllowAny,),
+        url_path='get-link'
+    )
+    def get_link(self, request, pk):
+        """Короткая ссылка на рецепт."""
+        url = 'http://{}/s/{}/'.format(
+            settings.ALLOWED_HOSTS[0],
+            short_url.encode_url(int(pk))
+        )
+        return Response({'short-link': url}, status=status.HTTP_200_OK)
+
+    @action(
+        detail=True,
         methods=['POST', 'DELETE'],
         permission_classes=[IsAuthenticated]
     )
@@ -96,51 +112,15 @@ class RecipeViewSet(viewsets.ModelViewSet):
             )
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-
-    # @action(
-    #     detail=True,
-    #     methods=['POST', 'DELETE'],
-    #     permission_classes=[IsAuthenticated]
-    # )
-    # def shopping_cart(self, request, pk):
-    #     user = request.user
-    #     recipe = get_object_or_404(Recipe, pk=pk)
-    #     serializer = ShortRecipeSerializer(
-    #         recipe,
-    #         context={'request': request}
-    #     )
-    #     shopping_list_obj, _ = ShoppingList.objects.get_or_create(
-    #         user=user
-    #     )
-    #     if request.method == 'POST':
-    #         ShoppingList.objects.create(
-    #             shopping_list=shopping_list_obj,
-    #             recipe=recipe
-    #         )
-    #         return Response(
-    #             data=serializer.data,
-    #             status=status.HTTP_201_CREATED)
-    #     try:
-    #         ShoppingList.objects.get(
-    #             shopping_list=shopping_list_obj,
-    #             recipe=recipe
-    #         ).delete()
-    #     except ShoppingList.DoesNotExist:
-    #         return Response(
-    #             data={'error': 'Данный рецепт отсутствует в вашем списке.'},
-    #             status=status.HTTP_400_BAD_REQUEST
-    #         )
-    #     return Response(status=status.HTTP_204_NO_CONTENT)
-
     @action(detail=True, permission_classes=(IsAuthenticated,))
     def shopping_cart(self, request, pk):
-        """"""
+        """Action для списка покупок пользователя."""
         pass
 
     @shopping_cart.mapping.post
     def add_into_shopping_cart(self, request, pk):
-        """Добавляет рецепт в список покупок пользователя."""
-        serializer = ShortRecipeSerializer(
+        """Добавляет рецепт в список покупок."""
+        serializer = RecipeShowIngredientSerializer(
             data=request.data,
             context={
                 'request': request,
@@ -153,17 +133,57 @@ class RecipeViewSet(viewsets.ModelViewSet):
         short_recipe = serializer.save(pk=pk)
         return Response(short_recipe.data, status=status.HTTP_201_CREATED)
 
+    @shopping_cart.mapping.delete
+    def delete_from_shopping_cart(self, request, pk):
+        """Удаляет рецепт из списка покупок."""
+        serializer = RecipeShowIngredientSerializer(
+            data=request.data,
+            context={
+                'request': request,
+                'recipe_pk': pk,
+                'action': 'delete',
+                'model': ShoppingList
+            }
+        )
+        serializer.is_valid(raise_exception=True)
+        get_object_or_404(
+            ShoppingList,
+            user=self.request.user,
+            recipe=get_object_or_404(Recipe, pk=pk)).delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
     @action(
         detail=False,
         methods=['GET'],
         permission_classes=[IsAuthenticated]
     )
-    def download_shopping_list(self, request):
-        print('DOWNLOAD_SHOPPING_LIST')
-        author = User.objects.get(id=self.request.user.pk)
-        if author.shopping_list.exists():
-            return shopping_list(self, request, author)
-        return Response(status=status.HTTP_404_NOT_FOUND)
+    def download_shopping_cart(self, request):
+        user = request.user
+        shopping_cart = ShoppingList.objects.filter(user=user)
+        if not shopping_cart.exists():
+            return Response(
+                {"detail": "В корзине пусто."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        shopping_list = {}
+        for item in shopping_cart:
+            ingredients = IngredientRecipe.objects.filter(recipe=item.recipe)
+            for ingredient in ingredients:
+                name = ingredient.ingredient.name
+                amount = ingredient.amount
+                unit = ingredient.ingredient.measurement_unit
+                if name in shopping_list:
+                    shopping_list[name]["amount"] += amount
+                else:
+                    shopping_list[name] = {"amount": amount, "unit": unit}
+        text = "Список покупок:\n\n"
+        for name, data in shopping_list.items():
+            text += f"{name} - {data['amount']} {data['unit']}\n"
+        response = HttpResponse(text, content_type='text/plain; charset=UTF-8')
+        response['Content-Disposition'] = 'attachment; filename="shopping_list.txt"'
+        return response
+
+
     
 
 # class Signup(UserViewSet):

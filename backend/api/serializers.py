@@ -4,9 +4,7 @@ from django.shortcuts import get_object_or_404
 from drf_extra_fields.fields import Base64ImageField
 from rest_framework import serializers
 from djoser.serializers import UserCreateSerializer
-from rest_framework.exceptions import ValidationError
 from rest_framework.validators import UniqueTogetherValidator
-# from rest_framework_simplejwt.tokens import RefreshToken
 from django.db.models import F
 
 from .constants import (
@@ -17,7 +15,6 @@ from .constants import (
 from .utils import validate_confirmation_code
 from recipes.models import (Ingredient, Tag, Recipe, IngredientRecipe,
                             Favorites, ShoppingList, RecipeTag)
-from users.serializers import UserSerializer
 
 
 User = get_user_model()
@@ -54,13 +51,15 @@ class IngredientRecipeSerializer(serializers.ModelSerializer):
 
 class ShortRecipeSerializer(serializers.ModelSerializer):
     """Сериалайзер представления ответа укороченных данных о Рецепте"""
+    image = Base64ImageField(required=True, allow_null=False)
+
 
     class Meta:
         model = Recipe
         fields = ('id', 'name', 'image', 'cooking_time')
 
 
-class RecipeShowIngredientSerializer(serializers.ModelSerializer):
+class RecipeShowIngredientSerializer(serializers.Serializer):
     """
     Сериализатор для IngredientRecipe (представление ингриента для рецепта).
     """
@@ -97,10 +96,48 @@ class RecipeIngredientSerializer(serializers.ModelSerializer):
         fields = ('id', 'amount')
 
 
+class AuthorSerializer(serializers.ModelSerializer):
+    """Сериализатор для кастомной модели User."""
+
+    is_subscribed = serializers.SerializerMethodField(
+        method_name='get_is_subscribed'
+    )
+    avatar = Base64ImageField(required=False, allow_null=True)
+
+    class Meta:
+        model = User
+        fields = (
+            'email',
+            'id',
+            'username',
+            'first_name',
+            'last_name',
+            'avatar',
+            'is_subscribed',
+        )
+
+    def get_is_subscribed(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return request.user.follower.filter(author=obj).exists()
+        return False
+
+    def get_avatar(self, data):
+        request = self.context.get('request')
+        if data.avatar:
+            return request.build_absolute_uri(data.avatar.url)
+        return None
+
+        # if request := self.context.get('request'):
+        #     if request.method == 'PUT' and not data:
+        #         raise serializers.ValidationError('Выберите фото')
+        # return data
+
+
 class RecipeSerializer(serializers.ModelSerializer):
     """Сериализатор для модели Recipe."""
 
-    author = UserSerializer()
+    author = AuthorSerializer()
     tags = TagSerializer(many=True,)
     ingredients = serializers.SerializerMethodField()
     is_favorited = serializers.SerializerMethodField()
@@ -232,10 +269,6 @@ class AddEditRecipeSerializer(serializers.ModelSerializer):
         return RecipeSerializer(instance).data
 
 
-# class AuthorRecipeSerializer(serializers.ModelSerializer):
-#     """Сериалайзер для наследования моделей вида Автор и Рецепт"""
-
-
 # class FavoritesSerializer(serializers.ModelSerializer):
 #     """Сериализатор для модели Favorites."""
 
@@ -302,59 +335,3 @@ class SignupSerializer(UserCreateSerializer):
 #         user.set_password(validated_data['password'])
 #         user.save()
 #         return user
-
-#     def validate(self, data):
-#         """
-#         Проверка уникальности username и email,
-#         а также ограничений для username.
-#         """
-
-#         username = data.get("username")
-#         email = data.get("email")
-#         if not re.fullmatch(USERNAME_REGEX, username):
-#             raise serializers.ValidationError(
-#                 "Содержимое поля 'username' не соотвествует формату."
-#             )
-#         if (
-#             User.objects.filter(email=email).exists()
-#             and not User.objects.filter(username=username).exists()
-#         ):
-#             raise serializers.ValidationError("Данный email уже используется.")
-#         if (
-#             User.objects.filter(username=username).exists()
-#             and not User.objects.filter(email=email).exists()
-#         ):
-#             raise serializers.ValidationError(
-#                 "Такой пользователь уже существует."
-#             )
-#         return data
-
-#     def check(self, data):
-#         email = data.get('email', None)
-#         password = data.get('password', None)
-
-#         if email is None:
-#             raise serializers.ValidationError(
-#                 'An email address is required to log in.'
-#             )
-
-#         if password is None:
-#             raise serializers.ValidationError(
-#                 'A password is required to log in.'
-#             )
-
-#         user = authenticate(username=email, password=password)
-
-#         if user is None:
-#             raise serializers.ValidationError(
-#                 'A user with this email and password was not found.'
-#             )
-
-#         if not user.is_active:
-#             raise serializers.ValidationError(
-#                 'This user has been deactivated.'
-#             )
-
-#         return {
-#             'token': user.token,
-#         }

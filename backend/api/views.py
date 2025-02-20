@@ -193,5 +193,5 @@ class RecipeViewSet(viewsets.ModelViewSet):
         for name, data in shopping_list.items():
             text += f"{name} - {data['amount']} {data['unit']}\n"
         response = HttpResponse(text, content_type='text/plain; charset=UTF-8')
-        response['Content-Disposition'] = 'attachment; filename="shopping_list.txt"'
+        response['Content-Disposition'] = 'attachment; filename="shoplist.txt"'
         return response

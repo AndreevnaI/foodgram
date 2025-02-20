@@ -1,22 +1,17 @@
-# from django.contrib.auth import get_user_model
-from rest_framework.decorators import action
+import base64
+from django.shortcuts import get_object_or_404
+from django.core.files.base import ContentFile
 from djoser.serializers import UserSerializer as DjangoUserSerializer
 from rest_framework import serializers
 
 from .models import User
 from recipes.models import Subscriptions
-
-
-from django.shortcuts import get_object_or_404
-from django.core.files.base import ContentFile
-
-
-import base64
 from api.serializers import ShortRecipeSerializer
 
 
 class Base64ImageField(serializers.ImageField):
-    """"""
+    """Сериализатор для преобразования аватарки."""
+
     def to_internal_value(self, data):
         if isinstance(data, str) and data.startswith('data:image'):
             format_, imgstr = data.split(';base64,')
@@ -49,12 +44,21 @@ class UserSerializer(DjangoUserSerializer):
             'is_subscribed'
         )
 
+    def validate(self, data):
+        request = self.context.get('request')
+        if request and request.method == 'PUT':
+            if not data.get('avatar'):
+                raise serializers.ValidationError(
+                    'Не заполенено поле аватара!'
+                )
+        return data
+
     def get_avatar(self, data):
         request = self.context.get('request')
         if data.avatar:
             return request.build_absolute_uri(data.avatar.url)
         return None
-    
+
     def get_is_subscribed(self, obj):
         request = self.context.get('request')
         if request and request.user.is_authenticated:
@@ -63,26 +67,31 @@ class UserSerializer(DjangoUserSerializer):
 
 
 class SubscriptionSerializer(serializers.Serializer):
-    """Для валидации и создания подписки"""
+    """Для валидации и создания подписки."""
 
     def validate(self, data):
-        if self.context.get('action') == 'unfollow':
-            return data
-
-        author = self.context.get('user_pk')
         user = self.context['request'].user
+        author_data = self.context.get('user_pk')
+        author_pk = get_object_or_404(User, pk=author_data)
+        subscription = user.follower.filter(author=author_pk)
 
-        if user == author:
-            raise serializers.ValidationError(
-                'Невозможно подписаться на самого себя!',
-            )
-        
-        if Subscriptions.objects.filter(
-                author=author,
-                user=user).exists():
-            raise serializers.ValidationError(
-                'Вы уже подписаны на этого пользователя!',
-            )
+        if self.context.get('action') == 'unfollow':
+            if not subscription:
+                raise serializers.ValidationError(
+                    'Невозможно отписаться, данной подписки не существует!',
+                )
+
+        if self.context.get('action') == 'follow':
+            if user == author_pk:
+                raise serializers.ValidationError(
+                    'Невозможно подписаться на самого себя!',
+                )
+            if Subscriptions.objects.filter(
+                    author=author_pk,
+                    user=user).exists():
+                raise serializers.ValidationError(
+                    'Вы уже подписаны на этого пользователя!',
+                )
         return data
 
     def create(self, validated_data):

@@ -1,19 +1,12 @@
-from django_filters.rest_framework import FilterSet, filters
-from rest_framework.filters import SearchFilter
+from django_filters.rest_framework import FilterSet
+from django_filters import rest_framework as filters
 
-from recipes.models import Recipe, Tag, Ingredient
+from recipes.models import Recipe, Tag
 from users.models import User
 
 
-class IngredientFilter(SearchFilter):
-    search_param = 'name'
-
-    class Meta:
-        model = Ingredient
-        fields = ('name',)
-
-
 class RecipeFilter(FilterSet):
+    """Фильтр для рецепта."""
     is_favorited = filters.NumberFilter(
         method='get_is_favorited')
     author = filters.ModelChoiceFilter(

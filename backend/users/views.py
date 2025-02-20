@@ -3,15 +3,15 @@ from djoser import views as djoser_views
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-
-from .models import User
-from recipes.models import Subscriptions
-from .serializers import (UserSerializer, UserSubscriptionsSerializer,
-                          SubscriptionSerializer)
-from api.paginators import LimitPageNumberPaginator
 from rest_framework.status import (
     HTTP_200_OK, HTTP_201_CREATED, HTTP_204_NO_CONTENT
 )
+
+from .models import User
+from .serializers import (UserSerializer, UserSubscriptionsSerializer,
+                          SubscriptionSerializer)
+from recipes.models import Subscriptions
+from api.paginators import LimitPageNumberPaginator
 
 
 class UserViewSet(djoser_views.UserViewSet):

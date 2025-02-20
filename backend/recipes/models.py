@@ -1,6 +1,8 @@
 from django.db import models
 from django.core.validators import MinValueValidator
 
+from api.constants import (NAME_MAX_LENGTH, MEASUREMENT_UNIT_LENGTH,
+                           TAG_LENGTH, SLUG_LENGTH)
 from users.models import User
 
 
@@ -8,13 +10,13 @@ class Ingredient(models.Model):
     """Модель для хранения ингредиентов."""
 
     name = models.CharField(
-        max_length=256,
+        max_length=NAME_MAX_LENGTH,
         verbose_name='Название ингредиента',
         help_text='Введите название ингредиента',
         db_index=True
     )
     measurement_unit = models.CharField(
-        max_length=256,
+        max_length=MEASUREMENT_UNIT_LENGTH,
         verbose_name='Единица измерения',
         help_text='Введите единицу измерения'
     )
@@ -31,13 +33,13 @@ class Tag(models.Model):
     """Модель тегов."""
 
     name = models.CharField(
-        max_length=256,
+        max_length=TAG_LENGTH,
         unique=True,
         verbose_name='Название тега',
         help_text='Введите название тега'
     )
     slug = models.SlugField(
-        max_length=256,
+        max_length=SLUG_LENGTH,
         unique=True,
         verbose_name='Слаг',
         help_text='Укажите слаг'
@@ -62,7 +64,7 @@ class Recipe(models.Model):
         help_text='Автор рецепта'
     )
     name = models.CharField(
-        max_length=256,
+        max_length=NAME_MAX_LENGTH,
         verbose_name='Название рецепта',
         help_text='Введите название рецепта',
         db_index=True
@@ -168,9 +170,6 @@ class Subscriptions(models.Model):
                 name='unique_following'
             )
         ]
-
-    def __str__(self):
-        return f'Пользователь {self.user} подписан на {self.author}'
 
 
 class Favorites(models.Model):

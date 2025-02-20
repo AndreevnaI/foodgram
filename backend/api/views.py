@@ -1,28 +1,21 @@
 import short_url
 from django.http import HttpResponse
-from rest_framework import viewsets, status, mixins
 from django.conf import settings
 from django.contrib.auth import get_user_model
-from rest_framework.response import Response
-from rest_framework.pagination import PageNumberPagination
-from rest_framework.permissions import AllowAny, IsAuthenticated, SAFE_METHODS
-from rest_framework.decorators import action
-from rest_framework.validators import ValidationError
-from rest_framework.views import APIView
-from django_filters.rest_framework import DjangoFilterBackend
 from django.shortcuts import get_object_or_404
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import viewsets, status, mixins
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from rest_framework.permissions import AllowAny, IsAuthenticated
 
-from djoser.views import UserViewSet
-
-from recipes.models import (Ingredient, Recipe, Favorites, ShoppingList, Tag, IngredientRecipe)
-# from users.models import User
-from users.serializers import UserSerializer
-# from api.downloads import shopping_list
+from recipes.models import (Ingredient, Recipe, Favorites, ShoppingList,
+                            Tag, IngredientRecipe)
 from api.serializers import (IngredientSerializer, RecipeSerializer,
                              AddEditRecipeSerializer, ShortRecipeSerializer,
                              TagSerializer, RecipeShowIngredientSerializer)
 from api.permissions import IsAuthorOrAdminOrReadOnly
-from api.filters import IngredientFilter, RecipeFilter
+from api.filters import RecipeFilter
 from api.paginators import LimitPageNumberPaginator
 
 
@@ -37,10 +30,16 @@ class IngredientViewSet(mixins.ListModelMixin,
     queryset = Ingredient.objects.all()
     serializer_class = IngredientSerializer
     permission_classes = (AllowAny, )
-    filter_backends = (IngredientFilter, )
+
+    def get_queryset(self):
+        queryset = self.queryset
+        name = self.request.query_params.get('name')
+        if name is not None:
+            queryset = queryset.filter(name__startswith=name)
+        return queryset
 
     def list(self, request):
-        serializer = self.serializer_class(self.queryset, many=True)
+        serializer = self.serializer_class(self.get_queryset(), many=True)
         return Response(serializer.data)
 
 
@@ -62,10 +61,14 @@ class RecipeViewSet(viewsets.ModelViewSet):
     """ViewSet для модели Recipe."""
 
     queryset = Recipe.objects.all()
-    # permission_classes = (IsAuthorOrAdminOrReadOnly, )
     filter_backends = (DjangoFilterBackend, )
     pagination_class = LimitPageNumberPaginator
     filterset_class = RecipeFilter
+
+    def get_permissions(self):
+        if self.action in ('list', 'retrieve', 'get_link'):
+            return (AllowAny(),)
+        return (IsAuthenticated(), IsAuthorOrAdminOrReadOnly())
 
     def get_serializer_class(self):
         if self.action in ['create', 'update', 'partial_update']:
@@ -78,9 +81,9 @@ class RecipeViewSet(viewsets.ModelViewSet):
         url_path='get-link'
     )
     def get_link(self, request, pk):
-        """Короткая ссылка на рецепт."""
+        """Ссылка на рецепт."""
         url = 'http://{}/s/{}/'.format(
-            settings.ALLOWED_HOSTS[0],
+            settings.DOMAIN_NAME,
             short_url.encode_url(int(pk))
         )
         return Response({'short-link': url}, status=status.HTTP_200_OK)
@@ -98,7 +101,16 @@ class RecipeViewSet(viewsets.ModelViewSet):
             context={'request': request}
         )
         if request.method == 'POST':
-            Favorites.objects.create(user=user, recipe=recipe)
+
+            _, created = Favorites.objects.get_or_create(
+                user=user,
+                recipe=recipe
+            )
+            if not created:
+                return Response(
+                    data={'error': 'Этот рецепт уже есть в списке.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
             return Response(
                 data=serializer.data,
                 status=status.HTTP_201_CREATED
@@ -158,6 +170,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
         permission_classes=[IsAuthenticated]
     )
     def download_shopping_cart(self, request):
+        """Скачивание списка покупок."""
         user = request.user
         shopping_cart = ShoppingList.objects.filter(user=user)
         if not shopping_cart.exists():
@@ -182,34 +195,3 @@ class RecipeViewSet(viewsets.ModelViewSet):
         response = HttpResponse(text, content_type='text/plain; charset=UTF-8')
         response['Content-Disposition'] = 'attachment; filename="shopping_list.txt"'
         return response
-
-
-    
-
-# class Signup(UserViewSet):
-#     """Регистрация пользователя."""
-
-#     permission_classes = (AllowAny,)
-#     serializer_class = SignupSerializer
-
-#     def post(self, request):
-#         # serializer = SignupSerializer(data=request.data)
-#         # serializer.is_valid(raise_exception=True)
-#         # username = serializer.validated_data["username"]
-#         # email = serializer.validated_data["email"]
-#         # user, _ = User.objects.get_or_create(username=username, email=email)
-#         # # confirmation_code = generate_confirmation_code(user)
-#         # # send_mail(
-#         # #     "Confirmation Code",
-#         # #     f"Your confirmation code is {confirmation_code}",
-#         # #     settings.DEFAULT_FROM_EMAIL,
-#         # #     [user.email],
-#         # # )
-#         # return Response(serializer.data, status=status.HTTP_200_OK)
-#         serializer = self.get_serializer(data=request.data)
-#         serializer.is_valid(raise_exception=True)
-#         user = serializer.save()
-#         return Response({
-#             "user": UserSerializer(user, context=self.get_serializer_context()).data,
-#             "message": "Пользователь успешно создан",
-#         })

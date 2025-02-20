@@ -1,9 +1,11 @@
 import os
 from pathlib import Path
 
-# from dotenv import load_dotenv
+from dotenv import load_dotenv
+from django.core.management.utils import get_random_secret_key
 
-# load_dotenv()
+
+load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -13,12 +15,15 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-g6(o-90r^f+aataua$%*7we_d0(33ir)v()um3nqmxal*&el+='
+SECRET_KEY = os.getenv('SECRET_KEY_VALUE', get_random_secret_key())
+
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv('DEBUG_VALUE', 'false').lower() == 'true'
 
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS_VALUE', default='127.0.0.1,localhost').split(',')
+
+DOMAIN_NAME = os.getenv('DOMAIN_NAME', '127.0.0.1')
 
 
 # Application definition
@@ -167,8 +172,6 @@ DJOSER = {
     'PERMISSIONS': {
         'user': ['rest_framework.permissions.AllowAny'],
         'user_list': ['rest_framework.permissions.AllowAny'],
-        # 'token_create': ['rest_framework.permissions.AllowAny'],
-        # 'token_destroy': ['rest_framework.permissions.IsAuthenticated'],
     }
 }
 

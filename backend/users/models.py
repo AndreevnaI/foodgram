@@ -1,13 +1,17 @@
+from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.core.validators import RegexValidator
-from django.db import models
 
 from api.constants import (EMAIL_MAX_LENGTH, USERNAME_MAX_LENGTH,
-                           USERNAME_REGEX)
+                           USERNAME_REGEX, FIRST_NAME_MAX_LENGTH,
+                           LAST_NAME_MAX_LENGTH)
 
 
 class User(AbstractUser):
     """Расширенная модель пользователя, наследующая от AbstractUser."""
+
+    USERNAME_FIELD = 'email'
+    REQUIRED_FIELDS = ('username', 'first_name', 'last_name')
 
     username = models.CharField(
         max_length=USERNAME_MAX_LENGTH,
@@ -15,8 +19,8 @@ class User(AbstractUser):
         validators=[
             RegexValidator(
                 regex=USERNAME_REGEX,
-                message="Имя пользователя может содержать "
-                "только буквы, цифры, @, ., +, -, и _.",
+                message='Имя пользователя может содержать '
+                'только буквы, цифры, @, ., +, -, и _.',
             )
         ],
         verbose_name='Имя пользователя',
@@ -29,11 +33,11 @@ class User(AbstractUser):
     )
     first_name = models.CharField(
         'Имя',
-        max_length=150
+        max_length=FIRST_NAME_MAX_LENGTH
     )
     last_name = models.CharField(
         'Фамилия',
-        max_length=150
+        max_length=LAST_NAME_MAX_LENGTH
     )
     avatar = models.ImageField(
         verbose_name='Аватар',
@@ -44,9 +48,9 @@ class User(AbstractUser):
     )
 
     class Meta:
-        ordering = ("username",)
-        verbose_name = "Пользователь"
-        verbose_name_plural = "Пользователи"
+        ordering = ('username',)
+        verbose_name = 'Пользователь'
+        verbose_name_plural = 'Пользователи'
 
     def __str__(self):
         return self.username

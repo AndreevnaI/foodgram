@@ -4,12 +4,8 @@ from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from .models import User
 
 
-class UserAdmin(BaseUserAdmin):
+@admin.register(User)
+class UserAdmin(admin.ModelAdmin):
     """Админ-панель для управления объектами модели User."""
 
-    list_display = ('username', 'first_name', 'last_name', 'email')
-    search_fields = ('username', 'email')
-    list_filter = ('username', 'email')
-
-
-admin.site.register(User, UserAdmin)
+    search_fields = ('name', 'email')

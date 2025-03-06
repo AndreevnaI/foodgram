@@ -1,18 +1,7 @@
 from django.contrib import admin
 
-from .models import (Ingredient, Tag, Recipe, IngredientRecipe, Subscriptions,
-                     Favorites, ShoppingList)
-
-
-class DisplayModelAdmin(admin.ModelAdmin):
-    """Display all fields for any model."""
-
-    def __init__(self, model, admin_site):
-        """For the list display."""
-        self.list_display = [
-            field.name for field in model._meta.fields if field.name != 'id'
-        ]
-        super().__init__(model, admin_site)
+from .models import (Ingredient, Tag, Recipe, IngredientRecipe, Subscription,
+                     Favorite, ShoppingList)
 
 
 @admin.register(Ingredient)
@@ -49,8 +38,8 @@ class IngredientRecipeAdmin(admin.ModelAdmin):
     search_fields = ('name',)
 
 
-@admin.register(Subscriptions)
-class SubscriptionsAdmin(admin.ModelAdmin):
+@admin.register(Subscription)
+class SubscriptionAdmin(admin.ModelAdmin):
     """Админ-панель для управления объектами модели Subscriptions."""
 
     list_display = ('user', 'author')
@@ -58,8 +47,8 @@ class SubscriptionsAdmin(admin.ModelAdmin):
     search_fields = ('user',)
 
 
-@admin.register(Favorites)
-class FavoritesAdmin(admin.ModelAdmin):
+@admin.register(Favorite)
+class FavoriteAdmin(admin.ModelAdmin):
     """Админ-панель для управления объектами модели Favorites."""
 
     list_display = ('user', 'recipe')

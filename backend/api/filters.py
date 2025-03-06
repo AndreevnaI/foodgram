@@ -1,12 +1,14 @@
 from django_filters.rest_framework import FilterSet
 from django_filters import rest_framework as filters
+from rest_framework.filters import SearchFilter
 
-from recipes.models import Recipe, Tag
+from recipes.models import Recipe, Tag, Ingredient
 from users.models import User
 
 
 class RecipeFilter(FilterSet):
     """Фильтр для рецепта."""
+
     is_favorited = filters.NumberFilter(
         method='get_is_favorited')
     author = filters.ModelChoiceFilter(
@@ -32,3 +34,15 @@ class RecipeFilter(FilterSet):
         if self.request.user.is_authenticated and value:
             return queryset.filter(shopping_list__user=self.request.user)
         return queryset
+
+
+class IngredientFilter(FilterSet):
+    """Фильтрация ингредиента по названию."""
+
+    name = filters.CharFilter(
+        field_name='name',
+        lookup_expr='istartswith')
+
+    class Meta:
+        model = Ingredient
+        fields = ('name',)

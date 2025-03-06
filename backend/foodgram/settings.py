@@ -15,15 +15,15 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-# SECRET_KEY = os.getenv('SECRET_KEY_VALUE', get_random_secret_key())
+SECRET_KEY = os.getenv('SECRET_KEY_VALUE', get_random_secret_key())
 
 
 # SECURITY WARNING: don't run with debug turned on in production!
-# DEBUG = os.getenv('DEBUG_VALUE', 'false').lower() == 'true'
+DEBUG = os.getenv('DEBUG_VALUE', 'false').lower() == 'true'
 
-# ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS_VALUE', default='127.0.0.1,localhost').split(',')
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS_VALUE', default='127.0.0.1,localhost').split(',')
 
-# DOMAIN_NAME = os.getenv('DOMAIN_NAME', '127.0.0.1')
+DOMAIN_NAME = os.getenv('DOMAIN_NAME', '127.0.0.1')
 
 
 SECRET_KEY = 'django-insecure-g6(o-90r^f+aataua$%*7we_d0(33ir)v()um3nqmxal*&el+='
@@ -171,8 +171,8 @@ DJOSER = {
     }
 }
 
-if DEBUG:
-    CORS_URLS_REGEX = r'^/api/.*$'
-    CORS_ALLOWED_ORIGINS = [
-        'http://localhost:3000',
-    ]
+# if DEBUG:
+#     CORS_URLS_REGEX = r'^/api/.*$'
+#     CORS_ALLOWED_ORIGINS = [
+#         'http://localhost:3000',
+#     ]

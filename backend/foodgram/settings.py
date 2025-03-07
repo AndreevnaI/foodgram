@@ -25,11 +25,6 @@ ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS_VALUE', default='127.0.0.1,localhost').
 
 DOMAIN_NAME = os.getenv('DOMAIN_NAME', '127.0.0.1')
 
-
-SECRET_KEY = 'django-insecure-g6(o-90r^f+aataua$%*7we_d0(33ir)v()um3nqmxal*&el+='
-DEBUG = True
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
-
 # Application definition
 
 INSTALLED_APPS = [

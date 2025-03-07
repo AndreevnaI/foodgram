@@ -1,10 +1,10 @@
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
-from django.core.validators import MinValueValidator, MaxValueValidator
 
-from api.constants import (NAME_MAX_LENGTH, MEASUREMENT_UNIT_LENGTH,
-                           TAG_LENGTH, SLUG_LENGTH, СOOKING_TIME_MIN,
-                           СOOKING_TIME_MAX, AMOUNT_INGREDIENT_MIN,
-                           AMOUNT_INGREDIENT_MAX)
+from api.constants import (AMOUNT_INGREDIENT_MAX, AMOUNT_INGREDIENT_MIN,
+                           MEASUREMENT_UNIT_LENGTH, NAME_MAX_LENGTH,
+                           SLUG_LENGTH, TAG_LENGTH, СOOKING_TIME_MAX,
+                           СOOKING_TIME_MIN)
 from users.models import User
 
 

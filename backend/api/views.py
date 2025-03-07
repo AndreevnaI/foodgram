@@ -1,29 +1,29 @@
 import short_url
-from django.db.models import Count
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.db.models import Count
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
 from djoser import views as djoser_views
-from rest_framework import viewsets, status
+from rest_framework import status, viewsets
 from rest_framework.decorators import action
-from rest_framework.response import Response
-from rest_framework.status import (
-    HTTP_200_OK, HTTP_201_CREATED, HTTP_204_NO_CONTENT
-)
 from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.status import (HTTP_200_OK, HTTP_201_CREATED,
+                                   HTTP_204_NO_CONTENT)
 
-from api.serializers import (IngredientSerializer, RecipeSerializer,
-                             AddEditRecipeSerializer, ShortRecipeSerializer,
-                             TagSerializer, RecipeShowIngredientSerializer,
-                             UserSerializer, SubscriptionSerializer,
-                             UserSubscriptionsSerializer, FavoriteSerializer)
+from api.filters import IngredientFilter, RecipeFilter
 from api.paginators import LimitPageNumberPaginator
 from api.permissions import IsAuthorOrAdminOrReadOnly
-from api.filters import RecipeFilter, IngredientFilter
-from recipes.models import (Ingredient, Recipe, Favorite, ShoppingList,
-                            Tag, IngredientRecipe, Subscription)
+from api.serializers import (AddEditRecipeSerializer, FavoriteSerializer,
+                             IngredientSerializer, RecipeSerializer,
+                             RecipeShowIngredientSerializer,
+                             ShortRecipeSerializer, SubscriptionSerializer,
+                             TagSerializer, UserSerializer,
+                             UserSubscriptionsSerializer)
+from recipes.models import (Favorite, Ingredient, IngredientRecipe, Recipe,
+                            ShoppingList, Subscription, Tag)
 
 User = get_user_model()
 
@@ -52,8 +52,8 @@ class TagViewSet(viewsets.ReadOnlyModelViewSet):
 class RecipeViewSet(viewsets.ModelViewSet):
     """ViewSet для модели Recipe."""
 
-    queryset = Recipe.objects.all().select_related(
-        'author').prefetch_related('tags').prefetch_related('ingredients')
+    queryset = Recipe.objects.select_related(
+        'author').prefetch_related('tags', 'ingredients')
     filter_backends = (DjangoFilterBackend, )
     pagination_class = LimitPageNumberPaginator
     filterset_class = RecipeFilter
@@ -89,23 +89,20 @@ class RecipeViewSet(viewsets.ModelViewSet):
     def add_to_favorite(self, request, pk):
         """Добавить рецепт в избранное."""
         serializer = FavoriteSerializer(
-            data=request.data,
-            context={
-                'request': request,
-                'recipe_pk': pk,
-                'action': 'add',
-                'model': Favorite})
+            data={'user': request.user.pk, 'recipe': pk}
+        )
         serializer.is_valid(raise_exception=True)
-        short_recipe = serializer.save(pk=pk)
-        return Response(short_recipe.data, status=status.HTTP_201_CREATED)
+        favorite_recipe = serializer.save(pk=pk)
+        short_recipe = ShortRecipeSerializer(favorite_recipe.recipe).data
+        return Response(data=short_recipe, status=status.HTTP_201_CREATED)
 
     @favorite.mapping.delete
     def delete_from_favorite(self, request, pk):
         """Удалить рецепт из избранного."""
         get_object_or_404(
             Favorite,
-            user=self.request.user,
-            recipe=get_object_or_404(Recipe, pk=pk)).delete()
+            user=request.user,
+            recipe=pk).delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=True, permission_classes=(IsAuthenticated,))
@@ -129,8 +126,8 @@ class RecipeViewSet(viewsets.ModelViewSet):
         """Удаляет рецепт из списка покупок."""
         get_object_or_404(
             ShoppingList,
-            user=self.request.user,
-            recipe=get_object_or_404(Recipe, pk=pk)).delete()
+            user=request.user,
+            recipe=pk).delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(
@@ -253,10 +250,9 @@ class UserViewSet(djoser_views.UserViewSet):
     @subscribe.mapping.delete
     def unfollow(self, request, id):
         """Отписка."""
-        author = get_object_or_404(self.get_queryset(), id=id)
         get_object_or_404(
             Subscription,
-            user=self.request.user,
-            author=author
+            user=request.user,
+            author=id
         ).delete()
         return Response(status=HTTP_204_NO_CONTENT)

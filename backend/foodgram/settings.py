@@ -1,9 +1,8 @@
 import os
 from pathlib import Path
 
-from dotenv import load_dotenv
 from django.core.management.utils import get_random_secret_key
-
+from dotenv import load_dotenv
 
 load_dotenv()
 
@@ -24,6 +23,7 @@ DEBUG = os.getenv('DEBUG_VALUE', 'false').lower() == 'true'
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS_VALUE', default='127.0.0.1,localhost').split(',')
 
 DOMAIN_NAME = os.getenv('DOMAIN_NAME', '127.0.0.1')
+
 
 # Application definition
 
@@ -79,6 +79,7 @@ WSGI_APPLICATION = 'foodgram.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
@@ -123,7 +124,7 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = '/static/'
-# STATIC_ROOT = os.path.join(BASE_DIR, 'static')
+
 STATIC_ROOT = BASE_DIR / 'collected_static'
 
 MEDIA_URL = '/media/'
@@ -165,9 +166,3 @@ DJOSER = {
         'user_list': ['rest_framework.permissions.AllowAny'],
     }
 }
-
-# if DEBUG:
-#     CORS_URLS_REGEX = r'^/api/.*$'
-#     CORS_ALLOWED_ORIGINS = [
-#         'http://localhost:3000',
-#     ]

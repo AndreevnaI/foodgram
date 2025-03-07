@@ -1,10 +1,10 @@
-from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.core.validators import RegexValidator
+from django.db import models
 
-from api.constants import (EMAIL_MAX_LENGTH, USERNAME_MAX_LENGTH,
-                           USERNAME_REGEX, FIRST_NAME_MAX_LENGTH,
-                           LAST_NAME_MAX_LENGTH)
+from api.constants import (EMAIL_MAX_LENGTH, FIRST_NAME_MAX_LENGTH,
+                           LAST_NAME_MAX_LENGTH, USERNAME_MAX_LENGTH,
+                           USERNAME_REGEX)
 
 
 class User(AbstractUser):
@@ -19,8 +19,8 @@ class User(AbstractUser):
         validators=[
             RegexValidator(
                 regex=USERNAME_REGEX,
-                message='Имя пользователя может содержать '
-                'только буквы, цифры, @, ., +, -, и _.',
+                message=('Имя пользователя может содержать только буквы,'
+                         'цифры, @, ., +, -, и _.',)
             )
         ],
         verbose_name='Имя пользователя',
@@ -28,8 +28,7 @@ class User(AbstractUser):
     email = models.EmailField(
         max_length=EMAIL_MAX_LENGTH,
         unique=True,
-        verbose_name='Email',
-        help_text='Введите адрес электронной почты'
+        verbose_name='Email'
     )
     first_name = models.CharField(
         'Имя',
@@ -42,7 +41,6 @@ class User(AbstractUser):
     avatar = models.ImageField(
         verbose_name='Аватар',
         blank=True,
-        null=True,
         default=None,
         upload_to='profiles'
     )

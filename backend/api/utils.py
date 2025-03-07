@@ -7,7 +7,5 @@ def generate_confirmation_code(user):
 
 
 def validate_confirmation_code(user, code):
-    """
-    Проверяет, что код подтверждения соответствует сгенерированному токену.
-    """
+    """Проверка кода подтверждения на соответствие сгенерированному токену."""
     return default_token_generator.check_token(user, code)

@@ -1,5 +1,6 @@
-import re
 import base64
+import re
+
 from django.core.files.base import ContentFile
 from django.db.models import F
 from django.shortcuts import get_object_or_404
@@ -9,10 +10,11 @@ from drf_extra_fields.fields import Base64ImageField
 from rest_framework import serializers
 from rest_framework.validators import UniqueTogetherValidator
 
-from .constants import (USERNAME_REGEX)
-from recipes.models import (Ingredient, Tag, Recipe, IngredientRecipe,
-                            Favorite, ShoppingList, Subscription)
+from recipes.models import (Favorite, Ingredient, IngredientRecipe, Recipe,
+                            ShoppingList, Subscription, Tag)
 from users.models import User
+
+from .constants import USERNAME_REGEX
 
 
 class IngredientSerializer(serializers.ModelSerializer):
@@ -181,8 +183,6 @@ class AddEditRecipeSerializer(serializers.ModelSerializer):
     )
     image = Base64ImageField(required=True, allow_null=False)
     name = serializers.CharField(required=True, max_length=256)
-    cooking_time = serializers.IntegerField(
-        max_value=32000, min_value=1)
 
     class Meta:
         model = Recipe
@@ -223,7 +223,6 @@ class AddEditRecipeSerializer(serializers.ModelSerializer):
         recipe = Recipe.objects.create(**validated_data)
         self.create_tags(tags, recipe)
         self.create_ingredients(ingredients, recipe)
-        recipe.save()
         return recipe
 
     def create_tags(self, tags, recipe):
@@ -368,7 +367,7 @@ class UserSerializer(DjangoUserSerializer):
     is_subscribed = serializers.SerializerMethodField(
         method_name='get_is_subscribed'
     )
-    avatar = Base64ImageField(required=False, allow_null=True)
+    avatar = Base64ImageField(required=False)
 
     class Meta:
         model = User
@@ -404,14 +403,16 @@ class UserSerializer(DjangoUserSerializer):
         return False
 
 
-class FavoriteSerializer(serializers.Serializer):
+class FavoriteSerializer(serializers.ModelSerializer):
     """Сериализатор для добавления рецепта в избранное."""
 
-    def create(self, validated_data):
-        model = self.context.get('model')
-        recipe = get_object_or_404(Recipe, pk=validated_data.get('pk'))
-        model.objects.create(
-            user=self.context['request'].user,
-            recipe=recipe
-        )
-        return ShortRecipeSerializer(recipe)
+    class Meta:
+        model = Favorite
+        fields = ('user', 'recipe')
+        validators = [
+            UniqueTogetherValidator(
+                queryset=Favorite.objects.all(),
+                fields=('user', 'recipe'),
+                message='Вы уже добавили рецепт в список избранных',
+            )
+        ]

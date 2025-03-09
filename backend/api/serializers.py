@@ -2,7 +2,7 @@ import base64
 import re
 
 from django.core.files.base import ContentFile
-from django.db.models import F
+from django.db.models import Count, F
 from django.shortcuts import get_object_or_404
 from djoser.serializers import UserCreateSerializer
 from djoser.serializers import UserSerializer as DjangoUserSerializer
@@ -61,6 +61,13 @@ class RecipeShowIngredientSerializer(serializers.ModelSerializer):
     class Meta:
         model = ShoppingList
         fields = ('user', 'recipe')
+        validators = [
+            UniqueTogetherValidator(
+                queryset=ShoppingList.objects.all(),
+                fields=('user', 'recipe'),
+                message='Вы уже добавили рецепт в список покупок',
+            )
+        ]
 
 
 class RecipeIngredientSerializer(serializers.ModelSerializer):
@@ -261,7 +268,7 @@ class SignupSerializer(UserCreateSerializer):
             'password')
 
     def validate(self, data):
-        """Проверка уникальности username и email"""
+        """Проверка уникальности username и email."""
         username = data.get('username')
         if not re.fullmatch(USERNAME_REGEX, username):
             raise serializers.ValidationError(
@@ -316,12 +323,13 @@ class SubscriptionSerializer(serializers.Serializer):
 
     def create(self, validated_data):
         limit_param = self.context.get('limit_param')
-        subscription = get_object_or_404(User, pk=validated_data.get('pk'))
+        queryset = User.objects.annotate(recipes_count=Count('recipes'))
+        user = get_object_or_404(queryset, pk=validated_data.get('pk'))
         Subscription.objects.create(
             user=self.context['request'].user,
-            author=subscription)
+            author=user)
         return UserSubscriptionsSerializer(
-            subscription,
+            user,
             context={'limit_param': limit_param})
 
 

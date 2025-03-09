@@ -88,8 +88,9 @@ class RecipeViewSet(viewsets.ModelViewSet):
     @favorite.mapping.post
     def add_to_favorite(self, request, pk):
         """Добавить рецепт в избранное."""
+        recipe = get_object_or_404(Recipe, pk=pk).pk
         serializer = FavoriteSerializer(
-            data={'user': request.user.pk, 'recipe': pk}
+            data={'user': request.user.pk, 'recipe': recipe}
         )
         serializer.is_valid(raise_exception=True)
         favorite_recipe = serializer.save(pk=pk)
@@ -99,22 +100,22 @@ class RecipeViewSet(viewsets.ModelViewSet):
     @favorite.mapping.delete
     def delete_from_favorite(self, request, pk):
         """Удалить рецепт из избранного."""
-        get_object_or_404(
-            Favorite,
-            user=request.user,
-            recipe=pk).delete()
+        deleted_raws, _ = Favorite.objects.filter(user=request.user,
+                                                  recipe=pk).delete()
+        if deleted_raws == 0:
+            return Response(status=status.HTTP_400_BAD_REQUEST)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=True, permission_classes=(IsAuthenticated,))
     def shopping_cart(self, request, pk):
         """Action для списка покупок пользователя."""
-        pass
 
     @shopping_cart.mapping.post
     def add_into_shopping_cart(self, request, pk):
         """Добавляет рецепт в список покупок."""
+        recipe = get_object_or_404(Recipe, pk=pk).pk
         serializer = RecipeShowIngredientSerializer(
-            data={'user': request.user.pk, 'recipe': pk}
+            data={'user': request.user.pk, 'recipe': recipe}
         )
         serializer.is_valid(raise_exception=True)
         shopping_list = serializer.save(pk=pk)
@@ -124,10 +125,10 @@ class RecipeViewSet(viewsets.ModelViewSet):
     @shopping_cart.mapping.delete
     def delete_from_shopping_cart(self, request, pk):
         """Удаляет рецепт из списка покупок."""
-        get_object_or_404(
-            ShoppingList,
-            user=request.user,
-            recipe=pk).delete()
+        deleted_raws, _ = ShoppingList.objects.filter(user=request.user,
+                                                      recipe__id=pk).delete()
+        if deleted_raws == 0:
+            return Response(status=status.HTTP_400_BAD_REQUEST)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(
@@ -250,9 +251,9 @@ class UserViewSet(djoser_views.UserViewSet):
     @subscribe.mapping.delete
     def unfollow(self, request, id):
         """Отписка."""
-        get_object_or_404(
-            Subscription,
-            user=request.user,
-            author=id
-        ).delete()
-        return Response(status=HTTP_204_NO_CONTENT)
+        deleted_raws, _ = Subscription.objects.filter(user=request.user,
+                                                      author=id).delete()
+        if deleted_raws == 0:
+            return Response(status=status.HTTP_400_BAD_REQUEST)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+

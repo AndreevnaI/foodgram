@@ -20,7 +20,8 @@ SECRET_KEY = os.getenv('SECRET_KEY_VALUE', get_random_secret_key())
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG_VALUE', 'false').lower() == 'true'
 
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS_VALUE', default='127.0.0.1,localhost').split(',')
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS_VALUE',
+                          default='127.0.0.1,localhost').split(',')
 
 DOMAIN_NAME = os.getenv('DOMAIN_NAME', '127.0.0.1')
 
@@ -90,6 +91,13 @@ DATABASES = {
         'PORT': os.getenv('DB_PORT', )
     }
 }
+
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.sqlite3',
+#         'NAME': BASE_DIR / 'db.sqlite3',
+#     }
+# }
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators

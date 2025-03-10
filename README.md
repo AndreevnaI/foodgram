@@ -72,8 +72,9 @@ http://localhost/api/docs
 
 - [Ирина Ильина](https://github.com/AndreevnaI) (в роли Python-разработчика)
 
-
+```bash
 ip: 51.250.103.205
 домен сервера: foodyami.zapto.org
 email админки: admin@mail.ru
 пароль админки: qwerty
+```

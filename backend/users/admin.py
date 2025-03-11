@@ -8,4 +8,12 @@ from .models import User
 class CustomUserAdmin(UserAdmin):
     """Админ-панель для управления объектами модели User."""
 
-    search_fields = ('first_name', 'email')
+    list_display = (
+        'email',
+        'first_name',
+        'last_name',
+        'username',
+        'avatar'
+    )
+    list_filter = ('is_active', 'is_superuser')
+    search_fields = ('first_name', 'last_name', 'username', 'email')

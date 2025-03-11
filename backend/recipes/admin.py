@@ -9,7 +9,6 @@ class IngredientAdmin(admin.ModelAdmin):
     """Админ-панель для управления объектами модели Ingredient."""
 
     list_display = ('name', 'measurement_unit')
-    list_filter = ('name',)
     search_fields = ('name',)
 
 
@@ -18,7 +17,6 @@ class TagAdmin(admin.ModelAdmin):
     """Админ-панель для управления объектами модели Tag."""
 
     list_display = ('name', 'slug')
-    list_filter = ('name',)
     search_fields = ('name',)
 
 
@@ -28,7 +26,14 @@ class RecipeAdmin(admin.ModelAdmin):
 
     list_display = ('author', 'name', 'pub_date')
     search_fields = ('name',)
-    list_filter = ('pub_date', 'author', 'name')
+    list_filter = ('pub_date', 'author')
+
+    def get_queryset(self, request):
+        queryset = super().get_queryset(request)
+        return queryset.select_related('author').prefetch_related(
+            'tags',
+            'ingredients'
+        )
 
 
 @admin.register(IngredientRecipe)
@@ -46,14 +51,21 @@ class SubscriptionAdmin(admin.ModelAdmin):
     list_filter = ('author',)
     search_fields = ('user',)
 
+    def get_queryset(self, request):
+        queryset = super().get_queryset(request)
+        return queryset.select_related('user')
+
 
 @admin.register(Favorite)
 class FavoriteAdmin(admin.ModelAdmin):
     """Админ-панель для управления объектами модели Favorites."""
 
     list_display = ('user', 'recipe')
-    list_filter = ('user',)
     search_fields = ('user',)
+
+    def get_queryset(self, request):
+        queryset = super().get_queryset(request)
+        return queryset.select_related('user', 'recipe')
 
 
 @admin.register(ShoppingList)
@@ -61,5 +73,8 @@ class ShoppingListAdmin(admin.ModelAdmin):
     """Админ-панель для управления объектами модели ShoppingList."""
 
     list_display = ('user', 'recipe')
-    list_filter = ('user',)
     search_fields = ('user',)
+
+    def get_queryset(self, request):
+        queryset = super().get_queryset(request)
+        return queryset.select_related('user', 'recipe')
